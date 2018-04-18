@@ -22,6 +22,8 @@ struct perf_event;
 struct bpf_prog;
 struct bpf_map;
 struct sock;
+struct seq_file;
+struct btf;
 
 /* map is generic key/value storage optionally accesible by eBPF programs */
 struct bpf_map_ops {
@@ -43,6 +45,10 @@ struct bpf_map_ops {
 	void (*map_fd_put_ptr)(void *ptr);
 	u32 (*map_gen_lookup)(struct bpf_map *map, struct bpf_insn *insn_buf);
 	u32 (*map_fd_sys_lookup_elem)(void *ptr);
+	void (*map_seq_show_elem)(struct bpf_map *map, void *key,
+				  struct seq_file *m);
+	int (*map_check_btf)(const struct bpf_map *map, const struct btf *btf,
+			     u32 key_type_id, u32 value_type_id);
 };
 
 struct bpf_map {
@@ -55,6 +61,9 @@ struct bpf_map {
 	u32 pages;
 	u32 id;
 	int numa_node;
+	u32 btf_key_id;
+	u32 btf_value_id;
+	struct btf *btf;
 	bool unpriv_array;
 	struct user_struct *user;
 	const struct bpf_map_ops *ops;
@@ -90,6 +99,11 @@ struct bpf_offloaded_map {
 static inline struct bpf_offloaded_map *map_to_offmap(struct bpf_map *map)
 {
 	return container_of(map, struct bpf_offloaded_map, map);
+}
+
+static inline bool bpf_map_support_seq_show(const struct bpf_map *map)
+{
+	return map->ops->map_seq_show_elem && map->ops->map_check_btf;
 }
 
 extern const struct bpf_map_ops bpf_map_offload_ops;
