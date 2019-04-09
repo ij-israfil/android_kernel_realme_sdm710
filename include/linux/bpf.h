@@ -73,6 +73,7 @@ struct bpf_map {
 	bool unpriv_array;
 	struct user_struct *user;
 	const struct bpf_map_ops *ops;
+	bool frozen; /* write-once */
 	struct work_struct work;
 	char name[BPF_OBJ_NAME_LEN];
 	atomic_t usercnt;
