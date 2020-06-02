@@ -2633,7 +2633,8 @@ static u32 __bpf_skb_max_len(const struct sk_buff *skb)
 			  SKB_MAX_ALLOC;
 }
 
-static int bpf_skb_adjust_net(struct sk_buff *skb, s32 len_diff)
+static int bpf_skb_adjust_net(struct sk_buff *skb, s32 len_diff,
+			      u64 flags)
 {
 	bool trans_same = skb->transport_header == skb->network_header;
 	u32 len_cur, len_diff_abs = abs(len_diff);
@@ -2642,6 +2643,9 @@ static int bpf_skb_adjust_net(struct sk_buff *skb, s32 len_diff)
 	__be16 proto = skb->protocol;
 	bool shrink = len_diff < 0;
 	int ret;
+
+	if (unlikely(flags & ~BPF_F_ADJ_ROOM_NO_CSUM_RESET))
+		return -EINVAL;
 
 	if (unlikely(len_diff_abs > 0xfffU))
 		return -EFAULT;
@@ -2661,17 +2665,20 @@ static int bpf_skb_adjust_net(struct sk_buff *skb, s32 len_diff)
 	ret = shrink ? bpf_skb_net_shrink(skb, len_diff_abs) :
 		       bpf_skb_net_grow(skb, len_diff_abs);
 
+	if (!ret && !(flags & BPF_F_ADJ_ROOM_NO_CSUM_RESET))
+		__skb_reset_checksum_unnecessary(skb);
+
 	bpf_compute_data_pointers(skb);
-	return 0;
+	return ret;
 }
 
 BPF_CALL_4(bpf_skb_adjust_room, struct sk_buff *, skb, s32, len_diff,
 	   u32, mode, u64, flags)
 {
-	if (unlikely(flags))
+	if (unlikely(flags & ~BPF_F_ADJ_ROOM_NO_CSUM_RESET))
 		return -EINVAL;
 	if (likely(mode == BPF_ADJ_ROOM_NET))
-		return bpf_skb_adjust_net(skb, len_diff);
+		return bpf_skb_adjust_net(skb, len_diff, flags);
 
 	return -ENOTSUPP;
 }
