@@ -19,14 +19,14 @@ jobs:
       KERNEL_CMDLINE: "ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- O=out LLVM_IAS=1"
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4.1.1
       with:
         persist-credentials: false
         submodules: 'true'
         fetch-depth: 0
    
     - name: Set up ccache
-      uses: hendrikmuhs/ccache-action@v1.2
+      uses: hendrikmuhs/ccache-action@v1.2.11
       
     - name: Update Repo
       id: sha
@@ -105,7 +105,7 @@ jobs:
         document: RMX1901-BloodMoon-KernelSU-${{ steps.version.outputs.VER }}-${{ steps.get_time.outputs.TIME }}.zip
     - name: Upload Kernel
       if: "${{ github.sha != steps.sha.outputs.NEW_SHA }}"
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4.3.0
       with:
         name: RMX1901-BloodMoon-KernelSU-${{ steps.version.outputs.VER }}-${{ steps.get_time.outputs.TIME }}
         path: "AnyKernel3/*"
