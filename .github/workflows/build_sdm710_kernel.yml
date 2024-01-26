@@ -21,7 +21,7 @@ jobs:
         fetch-depth: 0
 
     - name: Set up ccache
-      uses: hendrikmuhs/ccache-action@v1.2.11
+      uses: hendrikmuhs/ccache-action@v1.2.12
     
     - name: Install dependencies
       id: version
