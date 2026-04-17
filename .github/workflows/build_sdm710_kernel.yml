@@ -15,13 +15,13 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v6.0.2
       with:
         submodules: 'true'
         fetch-depth: 0
 
     - name: Set up ccache
-      uses: hendrikmuhs/ccache-action@v1.2.16
+      uses: hendrikmuhs/ccache-action@v1.2.22
 
     - name: Install dependencies
       run: |
@@ -69,7 +69,7 @@ jobs:
         cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3
 
     - name: Upload Kernel
-      uses: actions/upload-artifact@v4.6.0
+      uses: actions/upload-artifact@v7.0.1
       with:
         name: RMX1901-Perf-Kernel-${{ steps.build_kern.outputs.VERSION }}-${{ steps.get_time.outputs.TIME }}
         path: "AnyKernel3/*"
