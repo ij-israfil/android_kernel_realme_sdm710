@@ -1,9 +1,12 @@
 name: Build RMX1901-Kernel
+
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     env:
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
@@ -15,7 +18,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v6.0.2
+      uses: actions/checkout@v7.0.1
       with:
         submodules: 'true'
         fetch-depth: 0
@@ -27,19 +30,24 @@ jobs:
       run: |
         sudo timedatectl set-timezone Asia/Dhaka
         sudo apt-get update -y
-        sudo apt install binutils make python3 libssl-dev build-essential bc bison flex zip unzip xz-utils mkbootimg cpio device-tree-compiler git git-lfs -y
+        sudo apt install binutils make python3 libssl-dev build-essential bc bison flex zip unzip xz-utils mkbootimg cpio device-tree-compiler git git-lfs gcc-arm-linux-gnueabi gcc-aarch64-linux-gnu -y
         git clone --depth=1 https://github.com/kdrag0n/proton-clang.git clang
+        
+        # Remove Proton-Clang's outdated host GNU linkers to prevent GLIBC .relr.dyn errors on Ubuntu 24.04
+        rm -f clang/bin/ld clang/bin/ld.bfd clang/bin/ld.gold
+        
         git clone https://github.com/ij-israfil/AnyKernel3 -b master --depth=1
         rm -rf AnyKernel3/.git AnyKernel3/.github
 
     - name: GetTime
       id: get_time
-      run: echo "TIME=$(TZ=GMT+06 date +%m%d%H%M)" >> $GITHUB_OUTPUT
+      run: echo "TIME=$(TZ=Asia/Dhaka date +%m%d%H%M)" >> $GITHUB_OUTPUT
 
     - name: Build Kernel
       id: build_kern
       run: |
-        export PATH=$(pwd)/clang/bin/:$PATH
+        export PATH="$(pwd)/clang/bin:$PATH"
+
         export CROSS_COMPILE=aarch64-linux-gnu-
         export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
         export ARCH=arm64
@@ -51,25 +59,29 @@ jobs:
         export LD=ld.lld
         export KBUILD_LTO_CLANG=1
 
-        HOSTCFLAGS="-fuse-ld=lld -Wno-unused-command-line-argument"
+        # Extra flags to suppress driver warnings like '-fuse-ld=lld' during compilation
+        EXTRA_ARGS="HOSTCFLAGS=-Wno-unused-command-line-argument KCFLAGS=-Wno-unused-command-line-argument"
 
         # 1st: defconfig
-        make $KERNEL_CMDLINE $KERNEL_DEFCONFIG \
-          CC="ccache clang" \
-          HOSTCFLAGS="$HOSTCFLAGS"
+        make $KERNEL_CMDLINE $KERNEL_DEFCONFIG CC="ccache clang" $EXTRA_ARGS
 
         # Kernel version
         VERSION=$(make kernelversion)
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
         # 2nd: full kernel build
-        make $KERNEL_CMDLINE CC="ccache clang" -j$(nproc) \
-          HOSTCFLAGS="$HOSTCFLAGS"
+        make $KERNEL_CMDLINE CC="ccache clang" -j$(nproc) $EXTRA_ARGS
 
         cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3
+        
+        # Zip AnyKernel3 directory
+        cd AnyKernel3
+        zip -r9 "../RMX1901-Perf-Kernel-${VERSION}-${{ steps.get_time.outputs.TIME }}.zip" * -x .git README.md
+        cd ..
 
-    - name: Upload Kernel
-      uses: actions/upload-artifact@v7.0.1
+    - name: Upload to Release
+      uses: softprops/action-gh-release@v3.0.3
       with:
-        name: RMX1901-Perf-Kernel-${{ steps.build_kern.outputs.VERSION }}-${{ steps.get_time.outputs.TIME }}
-        path: "AnyKernel3/*"
+        tag_name: "RMX1901-${{ steps.build_kern.outputs.VERSION }}-${{ steps.get_time.outputs.TIME }}"
+        name: "RMX1901 Kernel ${{ steps.build_kern.outputs.VERSION }} (${{ steps.get_time.outputs.TIME }})"
+        files: RMX1901-Perf-Kernel-*.zip
